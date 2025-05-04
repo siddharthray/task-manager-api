@@ -1,4 +1,6 @@
-./.idea
-./vendor
+# IntelliJ project files
+*.iml
+.idea/
+vendor
 qodana.yaml
 .env
