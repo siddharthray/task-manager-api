@@ -2,7 +2,9 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/siddharthray/task-manager-api/internal/model"
+	"log"
 )
 
 type TaskRepository interface {
@@ -27,7 +29,11 @@ func (r *mysqlTaskRepo) GetAll() ([]model.Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			log.Printf("warning: rows.Close() failed: %v", closeErr)
+		}
+	}()
 
 	var tasks []model.Task
 	for rows.Next() {
@@ -56,7 +62,7 @@ func (r *mysqlTaskRepo) GetByID(id int64) (*model.Task, error) {
 		&t.CreatedAt, &t.CompletedAt, &t.ReopenedAt,
 		&t.UserID,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
