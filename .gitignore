@@ -4,3 +4,4 @@
 vendor
 qodana.yaml
 .env
+server
