@@ -1,2 +1,7 @@
-# ignore generated .imp file
-task-manager-api.imp
+./idea
+vendor
+.DS_Store
+.log
+qodana.yaml
+*.iml
+server
