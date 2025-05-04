@@ -1,7 +1,13 @@
 # IntelliJ project files
-*.iml
 .idea/
+
 vendor
 qodana.yaml
 .env
 server
+
+
+# Ignore all log files
+*.log
+*.log.*
+.DS_Store
