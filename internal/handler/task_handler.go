@@ -52,6 +52,9 @@ func (h *TaskHandler) list(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if tasks == nil {
+		tasks = []model.Task{}
+	}
 	c.JSON(http.StatusOK, tasks)
 }
 
@@ -63,24 +66,22 @@ func (h *TaskHandler) create(c *gin.Context) {
 		return
 	}
 
-	newID, err := h.Service.CreateTask(&payload)
+	// service returns the freshly‑created Task, including created_at
+	createdTask, err := h.Service.CreateTask(&payload)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"id": newID})
+
+	// 201 + full JSON
+	c.JSON(http.StatusCreated, createdTask)
 }
 
 // PUT /tasks/:id
 func (h *TaskHandler) update(c *gin.Context) {
-	// 1) parse ID
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 
-	// 2) bind incoming JSON into payload
+	// 1) bind only what client sent
 	var payload model.Task
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -88,15 +89,29 @@ func (h *TaskHandler) update(c *gin.Context) {
 	}
 	payload.ID = id
 
-	// 3) call the service and get back the full, updated Task
-	updatedTask, err := h.Service.UpdateTask(&payload)
+	// 2) fetch the current record
+	existing, err := h.Service.GetByID(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if existing == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
 
-	// 4) return it as JSON (200 OK)
-	c.JSON(http.StatusOK, updatedTask)
+	// 3) if text wasn’t provided in JSON, keep the old one
+	if payload.Text == "" {
+		payload.Text = existing.Text
+	}
+
+	// 4) run the update + return the new full object
+	updated, err := h.Service.UpdateTask(&payload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updated)
 }
 
 // DELETE /tasks/:id

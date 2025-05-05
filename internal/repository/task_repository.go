@@ -2,10 +2,7 @@ package repository
 
 import (
 	"database/sql"
-	"errors"
 	"github.com/siddharthray/task-manager-api/internal/model"
-	"log"
-	"time"
 )
 
 type TaskRepository interface {
@@ -26,23 +23,34 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 
 // GetAll implements TaskRepository
 func (r *mysqlTaskRepo) GetAll() ([]model.Task, error) {
-	rows, err := r.DB.Query(`SELECT id, text, completed, created_at, completed_at, reopened_at, user_id FROM tasks`)
+	rows, err := r.DB.Query(`
+        SELECT
+          id,
+          text,
+          completed,
+          created_at,
+          completed_at,
+          reopened_at,
+          updated_at
+        FROM tasks
+        ORDER BY created_at DESC
+    `)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			log.Printf("warning: rows.Close() failed: %v", closeErr)
-		}
-	}()
+	defer rows.Close()
 
-	var tasks []model.Task
+	tasks := make([]model.Task, 0)
 	for rows.Next() {
 		var t model.Task
 		if err := rows.Scan(
-			&t.ID, &t.Text, &t.Completed,
-			&t.CreatedAt, &t.CompletedAt, &t.ReopenedAt,
-			&t.UserID,
+			&t.ID,
+			&t.Text,
+			&t.Completed,
+			&t.CreatedAt,
+			&t.CompletedAt,
+			&t.ReopenedAt,
+			&t.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -54,16 +62,27 @@ func (r *mysqlTaskRepo) GetAll() ([]model.Task, error) {
 // GetByID implements TaskRepository
 func (r *mysqlTaskRepo) GetByID(id int64) (*model.Task, error) {
 	var t model.Task
-	err := r.DB.QueryRow(
-		`SELECT id, text, completed, created_at, completed_at, reopened_at, user_id
-         FROM tasks WHERE id = ?`,
-		id,
-	).Scan(
-		&t.ID, &t.Text, &t.Completed,
-		&t.CreatedAt, &t.CompletedAt, &t.ReopenedAt,
-		&t.UserID,
+	err := r.DB.QueryRow(`
+        SELECT
+          id,
+          text,
+          completed,
+          created_at,
+          completed_at,
+          reopened_at,
+          updated_at
+        FROM tasks
+        WHERE id = ?
+    `, id).Scan(
+		&t.ID,
+		&t.Text,
+		&t.Completed,
+		&t.CreatedAt,
+		&t.CompletedAt,
+		&t.ReopenedAt,
+		&t.UpdatedAt,
 	)
-	if errors.Is(err, sql.ErrNoRows) {
+	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
@@ -74,11 +93,10 @@ func (r *mysqlTaskRepo) GetByID(id int64) (*model.Task, error) {
 
 // Create implements TaskRepository
 func (r *mysqlTaskRepo) Create(t *model.Task) (int64, error) {
-	res, err := r.DB.Exec(
-		`INSERT INTO tasks (text, completed, created_at, user_id)
-         VALUES (?, ?, ?, ?)`,
-		t.Text, t.Completed, t.CreatedAt, t.UserID,
-	)
+	res, err := r.DB.Exec(`
+        INSERT INTO tasks (text, completed)
+        VALUES (?, ?)
+    `, t.Text, t.Completed)
 	if err != nil {
 		return 0, err
 	}
@@ -87,25 +105,36 @@ func (r *mysqlTaskRepo) Create(t *model.Task) (int64, error) {
 
 // Update implements TaskRepository
 func (r *mysqlTaskRepo) UpdateTask(t *model.Task) (*model.Task, error) {
-	_, err := r.DB.Exec(
-		`UPDATE tasks
-       SET text = ?, completed = ?, completed_at = ?, reopened_at = ?, updated_at = NOW()
-     WHERE id = ?`,
-		t.Text, t.Completed, t.CompletedAt, t.ReopenedAt, t.ID,
-	)
+	_, err := r.DB.Exec(`
+        UPDATE tasks
+           SET text      = ?,
+               completed = ?
+         WHERE id = ?
+    `, t.Text, t.Completed, t.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	var ts time.Time
-	if err := r.DB.QueryRow(
-		`SELECT updated_at FROM tasks WHERE id = ?`, t.ID,
-	).Scan(&ts); err != nil {
+	// re‑select the full row
+	var out model.Task
+	err = r.DB.QueryRow(`
+        SELECT id, text, completed,
+               created_at, completed_at, reopened_at, updated_at
+          FROM tasks
+         WHERE id = ?
+    `, t.ID).Scan(
+		&out.ID,
+		&out.Text,
+		&out.Completed,
+		&out.CreatedAt,
+		&out.CompletedAt,
+		&out.ReopenedAt,
+		&out.UpdatedAt,
+	)
+	if err != nil {
 		return nil, err
 	}
-	t.UpdatedAt = &ts
-
-	return t, nil
+	return &out, nil
 }
 
 // Delete implements TaskRepository

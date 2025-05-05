@@ -8,7 +8,7 @@ import (
 type TaskService interface {
 	ListTasks() ([]model.Task, error)
 	GetByID(id int64) (*model.Task, error)
-	CreateTask(t *model.Task) (int64, error)
+	CreateTask(t *model.Task) (*model.Task, error)
 	UpdateTask(t *model.Task) (*model.Task, error)
 	DeleteTask(id int64) error
 }
@@ -29,8 +29,17 @@ func (s *taskService) GetByID(id int64) (*model.Task, error) {
 	return s.repo.GetByID(id)
 }
 
-func (s *taskService) CreateTask(t *model.Task) (int64, error) {
-	return s.repo.Create(t)
+func (s *taskService) CreateTask(t *model.Task) (*model.Task, error) {
+	id, err := s.repo.Create(t)
+	if err != nil {
+		return nil, err
+	}
+	// Fetch the row we just inserted so we get created_at, updated_at, etc.
+	created, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 func (s *taskService) UpdateTask(t *model.Task) (*model.Task, error) {
