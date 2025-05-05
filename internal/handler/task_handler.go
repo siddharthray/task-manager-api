@@ -73,12 +73,14 @@ func (h *TaskHandler) create(c *gin.Context) {
 
 // PUT /tasks/:id
 func (h *TaskHandler) update(c *gin.Context) {
+	// 1) parse ID
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
+	// 2) bind incoming JSON into payload
 	var payload model.Task
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -86,11 +88,15 @@ func (h *TaskHandler) update(c *gin.Context) {
 	}
 	payload.ID = id
 
-	if err := h.Service.UpdateTask(&payload); err != nil {
+	// 3) call the service and get back the full, updated Task
+	updatedTask, err := h.Service.UpdateTask(&payload)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.Status(http.StatusNoContent)
+
+	// 4) return it as JSON (200 OK)
+	c.JSON(http.StatusOK, updatedTask)
 }
 
 // DELETE /tasks/:id

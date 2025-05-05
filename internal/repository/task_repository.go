@@ -5,13 +5,14 @@ import (
 	"errors"
 	"github.com/siddharthray/task-manager-api/internal/model"
 	"log"
+	"time"
 )
 
 type TaskRepository interface {
 	GetAll() ([]model.Task, error)
 	GetByID(id int64) (*model.Task, error)
 	Create(t *model.Task) (int64, error)
-	Update(t *model.Task) error
+	UpdateTask(t *model.Task) (*model.Task, error)
 	Delete(id int64) error
 }
 
@@ -85,14 +86,26 @@ func (r *mysqlTaskRepo) Create(t *model.Task) (int64, error) {
 }
 
 // Update implements TaskRepository
-func (r *mysqlTaskRepo) Update(t *model.Task) error {
+func (r *mysqlTaskRepo) UpdateTask(t *model.Task) (*model.Task, error) {
 	_, err := r.DB.Exec(
 		`UPDATE tasks
-         SET text = ?, completed = ?, completed_at = ?, reopened_at = ?
-         WHERE id = ?`,
+       SET text = ?, completed = ?, completed_at = ?, reopened_at = ?, updated_at = NOW()
+     WHERE id = ?`,
 		t.Text, t.Completed, t.CompletedAt, t.ReopenedAt, t.ID,
 	)
-	return err
+	if err != nil {
+		return nil, err
+	}
+
+	var ts time.Time
+	if err := r.DB.QueryRow(
+		`SELECT updated_at FROM tasks WHERE id = ?`, t.ID,
+	).Scan(&ts); err != nil {
+		return nil, err
+	}
+	t.UpdatedAt = &ts
+
+	return t, nil
 }
 
 // Delete implements TaskRepository
