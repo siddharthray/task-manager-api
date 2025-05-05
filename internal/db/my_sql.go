@@ -8,7 +8,7 @@ import (
 )
 
 func OpenMySQLDB(cfg *config.Config) (*sql.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true&loc=UTC",
 		cfg.DBUser, cfg.DBPass, cfg.DBHost, cfg.DBName,
 	)
 	return sql.Open("mysql", dsn)
