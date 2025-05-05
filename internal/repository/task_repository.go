@@ -94,9 +94,9 @@ func (r *mysqlTaskRepo) GetByID(id int64) (*model.Task, error) {
 // Create implements TaskRepository
 func (r *mysqlTaskRepo) Create(t *model.Task) (int64, error) {
 	res, err := r.DB.Exec(`
-        INSERT INTO tasks (text, completed)
-        VALUES (?, ?)
-    `, t.Text, t.Completed)
+        INSERT INTO tasks (text)
+        VALUES (?)
+    `, t.Text)
 	if err != nil {
 		return 0, err
 	}
