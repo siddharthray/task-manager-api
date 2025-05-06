@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/siddharthray/task-manager-api/internal/model"
 )
 
@@ -38,7 +39,11 @@ func (r *mysqlTaskRepo) GetAll() ([]model.Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+		}
+	}(rows)
 
 	tasks := make([]model.Task, 0)
 	for rows.Next() {
@@ -82,7 +87,7 @@ func (r *mysqlTaskRepo) GetByID(id int64) (*model.Task, error) {
 		&t.ReopenedAt,
 		&t.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -103,7 +108,7 @@ func (r *mysqlTaskRepo) Create(t *model.Task) (int64, error) {
 	return res.LastInsertId()
 }
 
-// Update implements TaskRepository
+// UpdateTask Update implements TaskRepository
 func (r *mysqlTaskRepo) UpdateTask(t *model.Task) (*model.Task, error) {
 	_, err := r.DB.Exec(`
         UPDATE tasks
